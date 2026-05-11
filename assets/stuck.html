@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Help Stuck Students</title>
+    <style>
+        body {
+            margin: 0;
+            background: #f5f7fb;
+            color: #172033;
+            font-family: "Segoe UI", "Noto Sans", Arial, sans-serif;
+            line-height: 1.55;
+        }
+
+        main {
+            max-width: 980px;
+            margin: 0 auto;
+            padding: 34px 28px 48px;
+        }
+
+        h1 {
+            margin: 0 0 8px;
+            font-size: 34px;
+            letter-spacing: 0;
+        }
+
+        h2 {
+            margin: 0 0 12px;
+            font-size: 21px;
+            letter-spacing: 0;
+        }
+
+        h3 {
+            margin: 18px 0 8px;
+            font-size: 16px;
+        }
+
+        p {
+            margin: 0 0 12px;
+            color: #536174;
+        }
+
+        a {
+            color: #1f6feb;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 18px;
+        }
+
+        .card {
+            background: #ffffff;
+            border: 1px solid #dfe5ef;
+            border-radius: 8px;
+            padding: 20px;
+        }
+
+        .full {
+            grid-column: 1 / -1;
+        }
+
+        ol,
+        ul {
+            margin: 0;
+            padding-left: 22px;
+        }
+
+        li {
+            margin: 7px 0;
+        }
+
+        code {
+            background: #eef1f6;
+            border-radius: 4px;
+            padding: 1px 5px;
+            font-family: Consolas, "Courier New", monospace;
+            font-size: 0.95em;
+        }
+
+        .note {
+            background: #eef3fb;
+            border-left: 4px solid #1f6feb;
+            border-radius: 6px;
+            padding: 12px 14px;
+            color: #172033;
+        }
+
+        @media (max-width: 760px) {
+            main {
+                padding: 24px 16px 36px;
+            }
+
+            .grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+<main>
+    <h1>Help Stuck Students</h1>
+    <p>
+        Use this page during class when students cannot move forward. Start with the
+        smallest fix that lets them keep learning, then return to the root cause later.
+    </p>
+
+    <section class="grid">
+        <article class="card">
+            <h2>Notebook Does Not Run</h2>
+            <ol>
+                <li>Save the notebook.</li>
+                <li>Use <strong>Kernel &gt; Restart Kernel</strong>.</li>
+                <li>Run cells from the top again.</li>
+                <li>Check whether the first error is an import, path, syntax, or data problem.</li>
+            </ol>
+            <p class="note">
+                Most notebook errors after many edits come from hidden kernel state.
+                Restarting gives the student a clean, repeatable result.
+            </p>
+        </article>
+
+        <article class="card">
+            <h2>Wrong Notebook Environment</h2>
+            <ol>
+                <li>For individual practice, use <strong>Student practice - local Jupyter Notebook</strong>.</li>
+                <li>For centralized class control, use <strong>Teacher controlled - JupyterHub</strong>.</li>
+                <li>If students cannot see the same files, confirm they opened the cloned assignment folder.</li>
+                <li>If the hub login appears, ask the teacher to confirm the JupyterHub URL and account access.</li>
+            </ol>
+        </article>
+
+        <article class="card">
+            <h2>Common Notebook Errors</h2>
+            <h3><code>ModuleNotFoundError</code></h3>
+            <p>Install requirements, then restart the kernel.</p>
+            <h3><code>FileNotFoundError</code></h3>
+            <p>Check the notebook folder and dataset path. Use relative paths when possible.</p>
+            <h3><code>NameError</code></h3>
+            <p>Run earlier cells first, or check spelling of variables and functions.</p>
+            <h3><code>Kernel died</code></h3>
+            <p>Restart the kernel. If it repeats, reduce memory use or check package versions.</p>
+        </article>
+
+        <article class="card">
+            <h2>Pull Latest Starter Code</h2>
+            <ol>
+                <li>Save current work.</li>
+                <li>Open a terminal in the assignment folder.</li>
+                <li>Run <code>git status</code> to see local changes.</li>
+                <li>Run <code>git pull</code> to get instructor updates.</li>
+            </ol>
+            <p class="note">
+                If Git reports conflicts, ask the student to copy their answer cells into a
+                backup text file before resolving anything.
+            </p>
+        </article>
+
+        <article class="card">
+            <h2>Submit Again</h2>
+            <ol>
+                <li>Run the notebook from top to bottom.</li>
+                <li>Save all files.</li>
+                <li>In the app, choose <strong>Assignment &gt; Upload assignment</strong>.</li>
+                <li>Paste a GitHub token when asked.</li>
+                <li>Wait for the pushed status badge.</li>
+            </ol>
+        </article>
+
+        <article class="card full">
+            <h2>Useful Reference Links</h2>
+            <ul>
+                <li><a href="https://docs.jupyter.org/en/latest/running.html">Jupyter documentation</a></li>
+                <li><a href="https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens">GitHub personal access tokens</a></li>
+                <li><a href="https://docs.github.com/en/get-started/using-git/about-git">Git and GitHub basics</a></li>
+                <li><a href="https://docs.github.com/en/education/manage-coursework-with-github-classroom">GitHub Classroom documentation</a></li>
+            </ul>
+        </article>
+    </section>
+</main>
+</body>
+</html>

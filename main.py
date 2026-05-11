@@ -3,7 +3,7 @@ from controler import *
 
 def run():
     window = Controller()
-    sys.exit(window.exec_())
+    sys.exit(window.exec())
 
 
 if __name__ == '__main__':
