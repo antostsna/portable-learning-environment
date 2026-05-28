@@ -1,3 +1,9 @@
+# Full install — installs everything (core + DIP + AI).
+# Prefer the tiered files for faster setup:
+#   requirements-core.txt   (always needed)
+#   requirements-dip.txt    (Digital Image Processing)
+#   requirements-ai.txt     (AI / Machine Learning)
+#
 # TensorFlow 1.14 only provides wheels for old Python versions and is no
 # longer installable on modern Python. Use the maintained 2.x line instead.
 tensorflow>=2.16,<2.22

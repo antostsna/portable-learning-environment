@@ -1,70 +1,119 @@
 # Portable Learning Environment (PLE)
 
-Portable Learning Environment is a desktop teaching workspace for programming, digital image processing, AI, and general computing lectures. It combines guided lesson setup, Jupyter Notebook/JupyterHub access, GitHub Classroom assignment flow, submission status, and help pages for students who get stuck.
+A desktop teaching workspace that combines **Jupyter notebooks**, **GitHub Classroom**, and a guided lesson workflow into one app for programming, image processing, AI, and general computing courses.
 
-## Who It Is For
+---
 
-- **Teachers**: run guided lab sessions, open Jupyter, clone assignments, show lesson checklists, and track assignment progress.
-- **Students**: practice in notebooks, follow checklists, submit work to GitHub Classroom, and get help for common notebook errors.
-- **University stakeholders / IT**: deploy a consistent learning environment for lab courses and support either local practice or institution-managed JupyterHub.
+## I am a…
 
-## Main Features
+### 👩‍🏫 Teacher
 
-- Course modes: General lecture, Programming language, Digital image processing, AI / machine learning, General lab.
-- Delivery modes: local Jupyter Notebook for student practice or teacher-controlled JupyterHub.
-- Start lesson workflow: choose course, choose delivery, clone assignment, open notebook environment, show checklist.
-- Pre-flight environment check before class.
-- Submission quality check before upload.
-- Assignment status: cloned, opened, submitted, pushed.
-- GitHub token upload flow instead of account passwords.
-- Help Center and Help Stuck Students pages.
-- Responsive PyQt6 desktop UI.
+You want to run a lab session with guided checklists and GitHub Classroom assignments.
 
-## Quick Start for Development
+1. [Install PLE on Windows](docs/INSTALL_WINDOWS.md) (≈5 min)
+2. [Set up GitHub Classroom](docs/GITHUB_CLASSROOM_SETUP.md) (once per course)
+3. [Daily teaching workflow](docs/TEACHER_GUIDE.md)
+
+### 🧑‍🎓 Student
+
+You want to open notebooks and submit assignments.
+
+1. [Install PLE on Windows](docs/INSTALL_WINDOWS.md) (or ask your teacher for the packaged app)
+2. [Student workflow](docs/STUDENT_GUIDE.md)
+
+### 🛠️ IT / Lab Administrator
+
+You want to roll PLE out to many machines or host a JupyterHub.
+
+- [Delivery guide](docs/DELIVERY.md) — lab install, packaged app, JupyterHub.
+- [Troubleshooting](docs/TROUBLESHOOTING.md)
+
+### 🏛️ University Stakeholder
+
+You want to evaluate PLE for a department or course.
+
+- [Stakeholder brief](docs/STAKEHOLDER_BRIEF.md) — goals, risks, metrics, pilot plan.
+
+---
+
+## What PLE does
+
+- **Course modes:** General lecture, Programming, Digital Image Processing, AI / ML, General lab.
+- **Delivery modes:** local Jupyter Notebook (student practice) or teacher-controlled JupyterHub.
+- **Lesson workflow:** pre-flight check → choose course → clone assignment → open notebook → checklist → submit → push.
+- **GitHub Classroom integration** with fine-grained personal access tokens (no passwords).
+- **Submission quality check** before upload (empty cells, missing outputs, missing artefacts, dirty git state).
+- **Help Center** and **Help Stuck Students** pages built into the app.
+
+Screenshots: see [`assets/`](assets/).
+
+---
+
+## Quick start for developers
 
 ```powershell
 git clone https://github.com/anto112/portable-learning-environment.git
 cd portable-learning-environment
 py -m venv .venv
 .\.venv\Scripts\python -m pip install --upgrade pip
-.\.venv\Scripts\python -m pip install -r requirements.txt
+.\.venv\Scripts\python -m pip install -r requirements-core.txt
 .\.venv\Scripts\python main.py
 ```
 
-## Delivery Options
+For DIP or AI courses, also install `requirements-dip.txt` and/or `requirements-ai.txt`. See [INSTALL_WINDOWS.md](docs/INSTALL_WINDOWS.md) for the full guide including prerequisites.
 
-For a university course, there are two practical ways to deliver the app:
+---
 
-1. **Source delivery for lab computers**
-   - IT installs Python, Git, and requirements once.
-   - Teachers or students run `python main.py`.
-   - Best for controlled computer labs where IT can manage Python environments.
+## Project layout
 
-2. **Packaged desktop app**
-   - Build a Windows executable with PyInstaller.
-   - Distribute the `dist` folder or installer to teachers/students.
-   - Best for non-technical users and BYOD classes.
+```
+portable-learning-environment/
+├── main.py                       Entry shim — adds src/ to sys.path
+├── assets/                       Icons, HTML help pages, screenshots
+├── docs/                         Markdown guides (rendered in-app)
+├── requirements*.txt             Tiered installs (core / dip / ai)
+├── .github/workflows/release.yml CI: build packaged Windows .zip
+└── src/                          All source code
+    ├── main.py                   (reserved for future entry point)
+    ├── MainWindow.py             Legacy view (to be split into ple/views/)
+    ├── controler.py              Legacy controller (to be split into ple/controllers/)
+    └── ple/                      New MVC package
+        ├── core/                 Constants, paths — no Qt
+        ├── models/               Data + state — no Qt widgets
+        ├── services/             (planned) IO + business logic
+        ├── views/                Qt widgets
+        │   └── theme/            light.qss, dark.qss, markdown_css.py
+        └── controllers/          (planned) signal wiring
+```
 
-See [Delivery Guide](docs/DELIVERY.md) for build and rollout details.
+See [docs/CHANGELOG.md](docs/CHANGELOG.md) for the migration status.
 
-## Documentation
+---
 
-- [Delivery Guide](docs/DELIVERY.md)
-- [Teacher Guide](docs/TEACHER_GUIDE.md)
-- [Student Guide](docs/STUDENT_GUIDE.md)
-- [University Stakeholder Brief](docs/STAKEHOLDER_BRIEF.md)
+## Documentation index
 
-## Recommended Course Workflow
+| Doc | Audience | Purpose |
+| --- | --- | --- |
+| [INSTALL_WINDOWS.md](docs/INSTALL_WINDOWS.md) | Everyone | Prerequisites + install |
+| [GITHUB_CLASSROOM_SETUP.md](docs/GITHUB_CLASSROOM_SETUP.md) | Teachers | One-time Classroom setup |
+| [TEACHER_GUIDE.md](docs/TEACHER_GUIDE.md) | Teachers | Daily teaching workflow |
+| [STUDENT_GUIDE.md](docs/STUDENT_GUIDE.md) | Students | Working on assignments |
+| [DELIVERY.md](docs/DELIVERY.md) | IT | Lab rollout + packaging |
+| [DEPLOYMENT_CHECKLIST.md](docs/DEPLOYMENT_CHECKLIST.md) | Maintainers | Pre-release + build + publish steps |
+| [STAKEHOLDER_BRIEF.md](docs/STAKEHOLDER_BRIEF.md) | Leaders | Evaluation + pilot |
+| [TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) | Everyone | Common errors and fixes |
+| [FAQ.md](docs/FAQ.md) | Everyone | Frequent questions |
+| [GLOSSARY.md](docs/GLOSSARY.md) | Everyone | Jupyter vs JupyterHub vs Classroom, etc. |
+| [SUPPORT.md](docs/SUPPORT.md) | Everyone | How to get help, file issues |
+| [CHANGELOG.md](docs/CHANGELOG.md) | Everyone | What changed |
+| [SCREENSHOTS.md](docs/SCREENSHOTS.md) | Maintainers | Screenshots referenced by guides |
 
-1. Teacher selects course type and delivery mode on the dashboard.
-2. Teacher clicks **Start lesson**.
-3. Teacher pastes the GitHub Classroom assignment URL.
-4. App clones the assignment and opens Jupyter Notebook or JupyterHub.
-5. Students follow the checklist.
-6. Students upload assignment with a GitHub personal access token.
-7. Teacher checks status badges and GitHub Classroom submissions.
+---
+
+## License
+
+[MIT](LICENSE)
 
 ## Contact
 
-Developed by Haryanto  
-Email: haryanto462@gmail.com
+Developed by **Haryanto** — <haryanto462@gmail.com>

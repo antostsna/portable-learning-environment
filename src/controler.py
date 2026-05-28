@@ -2,6 +2,7 @@ import sys
 from pathlib import Path
 
 from PyQt6 import QtCore, QtGui, QtWidgets
+from PyQt6.QtCore import QSettings
 from MainWindow import *
 from PyQt6.QtWebEngineWidgets import *
 from PyQt6.QtPrintSupport import *
@@ -13,8 +14,20 @@ import subprocess
 from urllib.parse import quote, urlparse
 from urllib.request import Request, urlopen
 
-
-APP_ID = "portable.learning.environment"
+from ple.core import (
+    APP_ID,
+    APP_VERSION,
+    DEFAULT_LOCAL_JUPYTER_URL,
+    DOCS_DIR,
+    ENV_JUPYTER_URL,
+    LOCAL_JUPYTER_PORT_START,
+    SETTINGS_DEFAULT_COURSE,
+    SETTINGS_HUB_URL,
+    SETTINGS_THEME,
+    SETTINGS_WELCOME_SEEN,
+    SETTINGS_WORK_FOLDER,
+    asset_path,
+)
 
 
 def configure_windows_taskbar_icon():
@@ -33,13 +46,19 @@ class Controller:
         configure_windows_taskbar_icon()
         self.app = QtWidgets.QApplication(sys.argv)
         self.app.setApplicationName("Portable Learning Environment")
-        self.app.setOrganizationName("Portable Learning Environment")
+        self.app.setOrganizationName("PLE")
+        self.app.setApplicationVersion(APP_VERSION)
         self.app.setWindowIcon(QtGui.QIcon(asset_path("ico.png")))
+        self.settings = QSettings("PLE", "Portable Learning Environment")
         self.MainWindow = QtWidgets.QMainWindow()
         self.main = Main()
         self.main.shutdown_callback = self.shutdown_jupyter
         self.local_jupyter_port = None
-        self.jupyter_url = os.environ.get("PLE_JUPYTER_URL", "http://localhost:8899/tree?")
+        # Resolve JupyterHub URL: env var > saved setting > local default
+        env_url = os.environ.get(ENV_JUPYTER_URL)
+        saved_url = self.settings.value(SETTINGS_HUB_URL, "", type=str)
+        self.jupyter_url = env_url or saved_url or DEFAULT_LOCAL_JUPYTER_URL
+        self.work_folder = self.settings.value(SETTINGS_WORK_FOLDER, str(Path.home()), type=str)
         self.jupyter_process = None
         self.repo_url = None
         self.dirName = None
@@ -51,40 +70,66 @@ class Controller:
             "pushed": False,
         }
         self.connect_event()
+        self.load_settings_into_ui()
+        self.apply_saved_theme()
+        self.wire_help_icons()
+        # _build_docs_page selects the first doc with setCurrentRow(0) before
+        # the controller can hook the currentItemChanged signal, so the very
+        # first render of the docs viewer never happens. Force it now.
+        self._render_initial_doc()
 
     def exec(self):
         self.main.show()
+        self.maybe_show_welcome()
         return self.app.exec()
 
     def start_local_jupyter(self):
+        """Start the local Jupyter Notebook server if it isn't already running.
+
+        Returns True if the server is running or was launched successfully,
+        False if it could not be started (and an error was shown).
+
+        Launches via ``sys.executable -m notebook`` rather than a bare
+        ``jupyter`` command so it always uses the Python environment the app
+        is running in — a bare command depends on PATH, which does not include
+        the venv's Scripts directory when the app is started with
+        ``.venv\\Scripts\\python main.py``.
+        """
         if not self.jupyter_url.startswith("http://localhost:"):
-            return
+            return True  # remote JupyterHub — nothing local to start
         if self.jupyter_process and self.jupyter_process.poll() is None:
-            return
-        self.local_jupyter_port = self.find_free_port(8899)
+            return True  # already running
+
+        self.local_jupyter_port = self.find_free_port(LOCAL_JUPYTER_PORT_START)
         self.jupyter_url = f"http://localhost:{self.local_jupyter_port}/tree?"
         try:
             self.jupyter_process = subprocess.Popen(
                 [
-                    "jupyter",
+                    sys.executable,
+                    "-m",
                     "notebook",
                     "--no-browser",
                     "--ServerApp.open_browser=False",
-                    "--NotebookApp.open_browser=False",
-                    f"--port={self.local_jupyter_port}",
-                    f"--notebook-dir={Path.home()}",
+                    f"--ServerApp.port={self.local_jupyter_port}",
+                    f"--ServerApp.root_dir={Path.home()}",
                     "--IdentityProvider.token=",
-                    "--ServerApp.token=",
                     "--ServerApp.password=",
-                    "--NotebookApp.token=",
-                    "--NotebookApp.password=",
                 ],
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
             )
-            self.main.statusBar().showMessage("Starting Jupyter in the app...")
-        except FileNotFoundError:
-            self.main.statusBar().showMessage("Jupyter command not found")
+        except (FileNotFoundError, OSError) as error:
+            QMessageBox.warning(
+                self.main,
+                "Jupyter not found",
+                "Could not start Jupyter Notebook.\n\n"
+                f"{error}\n\n"
+                "Make sure Jupyter is installed in this environment:\n"
+                "    pip install -r requirements-core.txt",
+            )
+            return False
+        self.main.statusBar().showMessage("Starting Jupyter Notebook...")
+        return True
 
     def find_free_port(self, preferred_port):
         for port in range(preferred_port, preferred_port + 100):
@@ -111,7 +156,8 @@ class Controller:
         self.main.forward.triggered.connect(self.forward)
         self.main.plus.triggered.connect(self.plus_home)
         self.main.home.triggered.connect(self.main.navigate_home)
-        self.main.pushButton.clicked.connect(self.open_jupyter)
+        self.main.pushButton.clicked.connect(self.open_local_notebook)
+        self.main.openHubButton.clicked.connect(self.open_jupyterhub)
         self.main.startLessonButton.clicked.connect(self.start_lesson)
         self.main.preflightButton.clicked.connect(self.run_preflight_check)
         self.main.stuckHelpButton.clicked.connect(self.open_stuck_help)
@@ -127,7 +173,7 @@ class Controller:
         # self.main.pushButton_2.clicked.connect(self.open_github)
         # self.main.pushButton_3.clicked.connect(self.plus_home)
         # self.main.pushButton_4.clicked.connect(self.open_github_classroom)
-        self.main.jupyter.triggered.connect(self.open_jupyter)
+        self.main.jupyter.triggered.connect(self.open_local_notebook)
         self.main.github.triggered.connect(self.open_github)
         self.main.github_class.triggered.connect(self.open_github_classroom)
         self.main.actionCreate_2.triggered.connect(self.clone_from_github)
@@ -136,6 +182,30 @@ class Controller:
         self.main.actionStartLesson.triggered.connect(self.start_lesson)
         self.main.actionInfo.triggered.connect(self.info)
         self.main.actionExport.triggered.connect(self.export)
+
+        # Sidebar quick actions
+        self.main.sidebarPreflightBtn.clicked.connect(self.run_preflight_check)
+        self.main.sidebarStartLessonBtn.clicked.connect(self.start_lesson)
+        self.main.sidebarOpenJupyterBtn.clicked.connect(self.open_local_notebook)
+
+        # Docs page
+        self.main.docsList.currentItemChanged.connect(self.on_docs_item_changed)
+        self.main.docsOpenFolderBtn.clicked.connect(self.open_docs_folder)
+
+        # Settings page
+        self.main.settingsSaveBtn.clicked.connect(self.save_settings_from_ui)
+        self.main.settingsResetBtn.clicked.connect(self.reset_settings_to_defaults)
+        self.main.settingsWorkFolderBrowse.clicked.connect(
+            lambda: self._select_dialog_folder(self.main.settingsWorkFolder, "Select default work folder")
+        )
+
+        # Help menu shortcuts that route into the in-app docs viewer
+        self.main.actionDocInstall.triggered.connect(
+            lambda: self.show_doc("INSTALL_WINDOWS.md")
+        )
+        self.main.actionDocClassroom.triggered.connect(
+            lambda: self.show_doc("GITHUB_CLASSROOM_SETUP.md")
+        )
 
     def set_assignment_status(self, key, value=True, detail=None):
         self.assignment_status[key] = value
@@ -173,7 +243,7 @@ class Controller:
         checks = [
             ("Python", *self.check_command([sys.executable, "--version"], "Python is available")),
             ("Git", *self.check_command(["git", "--version"], "Git is available")),
-            ("Jupyter", *self.check_command(["jupyter", "--version"], "Jupyter is available")),
+            ("Jupyter", *self.check_command([sys.executable, "-m", "notebook", "--version"], "Jupyter Notebook is available")),
             ("Git user.name", *self.git_config_check("user.name")),
             ("Git user.email", *self.git_config_check("user.email")),
         ]
@@ -242,16 +312,19 @@ class Controller:
         table.setEditTriggers(QtWidgets.QAbstractItemView.EditTrigger.NoEditTriggers)
         table.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectionBehavior.SelectRows)
         table.setWordWrap(True)
+        # Paired background + foreground so contrast holds in both themes.
+        status_colors = {
+            "Pass": ("#dcfce7", "#166534"),
+            "Warn": ("#fef3c7", "#92400e"),
+            "Fail": ("#fee2e2", "#991b1b"),
+        }
         for row, (name, status, result, fix) in enumerate(checks):
             values = [name, status, result, fix]
+            bg, fg = status_colors.get(status, ("#f1f5f9", "#0f172a"))
             for column, value in enumerate(values):
                 item = QtWidgets.QTableWidgetItem(value)
-                if status == "Pass":
-                    item.setBackground(QtGui.QColor("#e8f5ee"))
-                elif status == "Warn":
-                    item.setBackground(QtGui.QColor("#fff7df"))
-                else:
-                    item.setBackground(QtGui.QColor("#fdecec"))
+                item.setBackground(QtGui.QColor(bg))
+                item.setForeground(QtGui.QColor(fg))
                 table.setItem(row, column, item)
         table.resizeColumnsToContents()
         table.horizontalHeader().setStretchLastSection(True)
@@ -283,13 +356,8 @@ class Controller:
 
     def open_assignment_in_jupyter(self, assignment_path):
         self.current_assignment_path = str(Path(assignment_path).resolve())
-        if self.jupyter_url.startswith("http://localhost:"):
-            self.start_local_jupyter()
-            folder_url = self.local_tree_url(self.current_assignment_path)
-            self.main.add_new_tab(QtCore.QUrl(folder_url), "Assignment")
-            self.main.urlbar.setText(folder_url)
-        else:
-            self.open_jupyter()
+        if not self._launch_jupyter(self.current_assignment_path, "Assignment"):
+            return
         self.set_assignment_status(
             "opened",
             True,
@@ -392,7 +460,7 @@ class Controller:
             return
 
         if delivery_mode.currentIndex() == 0:
-            self.jupyter_url = "http://localhost:8899/tree?"
+            self.jupyter_url = DEFAULT_LOCAL_JUPYTER_URL
         else:
             self.jupyter_url = hub_input.text().strip() or self.jupyter_url
 
@@ -874,9 +942,153 @@ class Controller:
         self.dialog_2.exec()
 
     def open_jupyter(self):
-        self.start_local_jupyter()
-        self.main.add_new_tab(QtCore.QUrl(self.jupyter_url), 'Loading ...')
-        self.main.urlbar.setText(self.jupyter_url)
+        # Back-compat alias — defaults to a local notebook.
+        self.open_local_notebook()
+
+    def open_local_notebook(self):
+        """Always open a Jupyter Notebook running on this computer.
+
+        Forces local mode even if a JupyterHub URL is configured, so the
+        'Open Jupyter Notebook' action is predictable for every user.
+        """
+        if not self.jupyter_url.startswith("http://localhost:"):
+            self.jupyter_url = DEFAULT_LOCAL_JUPYTER_URL
+        self._launch_jupyter(assignment_path=None, title="Jupyter Notebook")
+
+    def open_jupyterhub(self):
+        """Open an institution-hosted JupyterHub.
+
+        Uses the saved hub URL from Settings; if none is set, prompts for one
+        and offers to remember it. Remote servers are loaded directly (no
+        readiness polling — they're already running).
+        """
+        hub_url = self.settings.value(SETTINGS_HUB_URL, "", type=str)
+        if not hub_url or hub_url.startswith("http://localhost:"):
+            entered, ok = QtWidgets.QInputDialog.getText(
+                self.main,
+                "Open JupyterHub",
+                "Enter your JupyterHub URL\n(ask your teacher or IT if unsure):",
+                QtWidgets.QLineEdit.EchoMode.Normal,
+                "https://",
+            )
+            if not ok:
+                return
+            hub_url = entered.strip()
+            if not hub_url or hub_url in ("https://", "http://"):
+                QMessageBox.information(
+                    self.main,
+                    "Open JupyterHub",
+                    "No JupyterHub URL was entered.",
+                )
+                return
+            # Remember it for next time and reflect in Settings.
+            self.settings.setValue(SETTINGS_HUB_URL, hub_url)
+            self.settings.sync()
+            self.main.settingsHubUrl.setText(hub_url)
+
+        self.jupyter_url = hub_url
+        self.main.add_new_tab(QtCore.QUrl(hub_url), "JupyterHub")
+        self.main.urlbar.setText(hub_url)
+
+    def _launch_jupyter(self, assignment_path, title):
+        """Open Jupyter in a tab.
+
+        For local mode, starts the server (if needed) and waits until it is
+        actually accepting connections before navigating — otherwise the web
+        view loads before the server is up and shows ERR_CONNECTION_REFUSED.
+        Returns False only if the local server could not be started.
+        """
+        is_local = self.jupyter_url.startswith("http://localhost:")
+        if is_local:
+            if not self.start_local_jupyter():
+                return False
+            target = self.local_tree_url(assignment_path)
+            self._open_url_when_ready(target, title)
+        else:
+            # Remote JupyterHub — server is already managed elsewhere.
+            self.main.add_new_tab(QtCore.QUrl(self.jupyter_url), title)
+            self.main.urlbar.setText(self.jupyter_url)
+        return True
+
+    def _open_url_when_ready(self, url, title, timeout_ms=30000, interval_ms=500):
+        """Open `url` in a new tab once its host:port accepts connections.
+
+        Shows a 'Starting…' placeholder immediately and polls with a QTimer so
+        the UI never freezes. Falls back to a clear message on timeout or if
+        the Jupyter process dies.
+        """
+        parsed = urlparse(url)
+        host = parsed.hostname or "127.0.0.1"
+        port = parsed.port or 80
+
+        self.main.add_new_tab(QtCore.QUrl("about:blank"), title)
+        browser = self.main.tabs.currentWidget()
+        try:
+            browser.setHtml(self._jupyter_loading_html())
+        except Exception:
+            pass
+        self.main.urlbar.setText(url)
+        self.main.statusBar().showMessage("Starting Jupyter Notebook...")
+
+        state = {"elapsed": 0}
+        timer = QtCore.QTimer(self.main)
+
+        def check():
+            state["elapsed"] += interval_ms
+
+            # Jupyter process exited before becoming reachable?
+            if self.jupyter_process is not None and self.jupyter_process.poll() is not None:
+                timer.stop()
+                self._jupyter_failed(
+                    "The Jupyter process stopped before it was ready. "
+                    "Run Pre-flight check to confirm Jupyter is installed."
+                )
+                return
+
+            # User closed the placeholder tab — stop quietly.
+            open_tabs = [self.main.tabs.widget(i) for i in range(self.main.tabs.count())]
+            if browser not in open_tabs:
+                timer.stop()
+                return
+
+            reachable = False
+            try:
+                with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+                    sock.settimeout(0.3)
+                    reachable = sock.connect_ex((host, port)) == 0
+            except OSError:
+                reachable = False
+
+            if reachable:
+                timer.stop()
+                browser.setUrl(QtCore.QUrl(url))
+                self.main.statusBar().showMessage("Jupyter Notebook ready")
+            elif state["elapsed"] >= timeout_ms:
+                timer.stop()
+                self._jupyter_failed(
+                    "Jupyter did not start within the expected time.\n\n"
+                    "Run Pre-flight check to confirm Jupyter is installed, "
+                    "or close other Jupyter servers and try again."
+                )
+
+        timer.timeout.connect(check)
+        timer.start(interval_ms)
+        self._jupyter_timer = timer  # keep a reference so it isn't garbage-collected
+
+    def _jupyter_failed(self, message):
+        self.main.statusBar().showMessage("Jupyter failed to start")
+        QMessageBox.warning(self.main, "Jupyter Notebook", message)
+
+    def _jupyter_loading_html(self):
+        return (
+            "<html><body style=\"font-family:'Segoe UI',sans-serif;"
+            "background:#0b1220;color:#e2e8f0;margin:0;height:100vh;"
+            "display:flex;align-items:center;justify-content:center;\">"
+            "<div style='text-align:center;'>"
+            "<div style='font-size:18px;font-weight:600;'>Starting Jupyter Notebook…</div>"
+            "<div style='color:#94a3b8;margin-top:8px;'>This usually takes a few seconds.</div>"
+            "</div></body></html>"
+        )
 
     def plus_home(self):
         self.main.add_new_tab(QtCore.QUrl('https://www.google.com'), 'Google')
@@ -909,27 +1121,269 @@ class Controller:
         self.main.add_new_tab(QtCore.QUrl("https://classroom.github.com/"), 'Loading ...')
 
     def about_us(self):
-        msgbox = QtWidgets.QMessageBox()
-        msgbox.setWindowTitle("About Us")
-        msgbox.setText("Portable Learning Environment\n\n"
-                       "Contact: haryanto462@gmail.com")
-        about_icon = QtGui.QPixmap(asset_path("ico.png")).scaled(
-            96,
-            96,
-            QtCore.Qt.AspectRatioMode.KeepAspectRatio,
-            QtCore.Qt.TransformationMode.SmoothTransformation,
-        )
-        msgbox.setIconPixmap(about_icon)
-        msgbox.exec()
+        self.main.show_page(self.main.PAGE_ABOUT)
 
     def open_help(self):
-        help_path = Path(__file__).resolve().parent / "assets" / "help.html"
-        self.main.add_new_tab(QUrl.fromLocalFile(str(help_path)))
+        self._open_help_page("help.html", "Help Center")
 
     def open_stuck_help(self):
-        help_path = Path(__file__).resolve().parent / "assets" / "stuck.html"
-        self.main.add_new_tab(QUrl.fromLocalFile(str(help_path)), "Help stuck students")
+        self._open_help_page("stuck.html", "Help stuck students")
+
+    def _open_help_page(self, filename, title):
+        """Open a bundled HTML help page in a browser tab.
+
+        Resolves via ple.core.asset_path so it works regardless of where the
+        source lives (src/ layout) or whether the app is frozen by PyInstaller.
+        """
+        path = Path(asset_path(filename))
+        if not path.exists():
+            QMessageBox.warning(
+                self.main,
+                "Help page not found",
+                f"Could not find {filename} in the assets folder.\n\n"
+                f"Expected at: {path}",
+            )
+            return
+        self.main.add_new_tab(QUrl.fromLocalFile(str(path)), title)
 
     def exit(self):
         self.shutdown_jupyter()
         self.main.close()
+
+    # ------------------------------------------------------------------
+    # In-app documentation viewer
+    # ------------------------------------------------------------------
+    def show_doc(self, filename):
+        """Switch to the Docs page and select the given doc by filename."""
+        self.main.show_page(self.main.PAGE_DOCS)
+        for row in range(self.main.docsList.count()):
+            item = self.main.docsList.item(row)
+            if item.data(QtCore.Qt.ItemDataRole.UserRole) == filename:
+                self.main.docsList.setCurrentRow(row)
+                return
+        # Fallback: load directly even if it's not in the sidebar list
+        self.load_doc_into_viewer(filename, filename)
+
+    def on_docs_item_changed(self, current, previous):
+        if current is None:
+            return
+        filename = current.data(QtCore.Qt.ItemDataRole.UserRole)
+        title = current.text().split("\n", 1)[0]
+        self.load_doc_into_viewer(filename, title)
+
+    def _render_initial_doc(self):
+        """Make sure the docs viewer is populated as soon as the app launches.
+
+        The list widget selects row 0 during view construction, but the
+        ``currentItemChanged`` signal fires before the controller has hooked
+        it. This helper renders whatever row is currently selected, falling
+        back to row 0 if nothing is.
+        """
+        docs_list = self.main.docsList
+        if docs_list.count() == 0:
+            return
+        if docs_list.currentItem() is None:
+            docs_list.setCurrentRow(0)
+        current = docs_list.currentItem()
+        if current is not None:
+            self.on_docs_item_changed(current, None)
+
+    def load_doc_into_viewer(self, filename, title):
+        path = DOCS_DIR / filename
+        viewer = self.main.docsViewer
+        self.main.docsCurrentTitle.setText(title)
+        if not path.exists():
+            viewer.setMarkdown(
+                f"# Document not found\n\n`{filename}` is missing from the `docs/` folder."
+            )
+            return
+        try:
+            text = path.read_text(encoding="utf-8")
+        except OSError as error:
+            viewer.setPlainText(f"Could not read {filename}:\n{error}")
+            return
+        viewer.setSearchPaths([str(DOCS_DIR)])
+        # The widget stylesheet does NOT cascade into rendered HTML, so the
+        # docs viewer has its own stylesheet on the QTextDocument. We also
+        # set a default font at the document level — some Qt builds ignore
+        # font-size on `body` in the CSS subset unless the document already
+        # has a matching default font.
+        document = viewer.document()
+        document.setDefaultFont(QtGui.QFont("Segoe UI", 11))
+        document.setDefaultStyleSheet(self._markdown_css())
+        viewer.setMarkdown(text)
+        viewer.verticalScrollBar().setValue(0)
+
+    def _markdown_css(self):
+        """Return the docs-viewer stylesheet for the active theme."""
+        from ple.views.theme import markdown_css
+        return markdown_css(getattr(self.main, "current_theme", "light"))
+
+    def open_docs_folder(self):
+        url = QtCore.QUrl.fromLocalFile(str(DOCS_DIR))
+        QtGui.QDesktopServices.openUrl(url)
+
+    # ------------------------------------------------------------------
+    # Settings persistence
+    # ------------------------------------------------------------------
+    def load_settings_into_ui(self):
+        # Hub URL: never show the placeholder localhost in the field
+        saved_hub = self.settings.value(SETTINGS_HUB_URL, "", type=str)
+        if saved_hub and not saved_hub.startswith("http://localhost:"):
+            self.main.settingsHubUrl.setText(saved_hub)
+        self.main.settingsWorkFolder.setText(
+            self.settings.value(SETTINGS_WORK_FOLDER, str(Path.home()), type=str)
+        )
+        default_course = self.settings.value(SETTINGS_DEFAULT_COURSE, "General lecture", type=str)
+        index = self.main.settingsDefaultCourse.findText(default_course)
+        if index >= 0:
+            self.main.settingsDefaultCourse.setCurrentIndex(index)
+            self.main.courseModeSelect.setCurrentIndex(
+                self.main.courseModeSelect.findText(default_course)
+            )
+        theme = self.settings.value(SETTINGS_THEME, "Light", type=str)
+        theme_index = self.main.settingsTheme.findText(theme)
+        if theme_index >= 0:
+            self.main.settingsTheme.setCurrentIndex(theme_index)
+
+    def apply_saved_theme(self):
+        theme = self.settings.value(SETTINGS_THEME, "Light", type=str)
+        self.main._apply_style("dark" if theme.lower() == "dark" else "light")
+
+    def wire_help_icons(self):
+        """Connect each (?) icon's click to open the named doc."""
+        for icon in getattr(self.main, "helpIcons", []):
+            doc = icon.property("docFilename")
+            if doc:
+                icon.clicked.connect(lambda _checked=False, d=doc: self.show_doc(d))
+
+    def save_settings_from_ui(self):
+        hub_url = self.main.settingsHubUrl.text().strip()
+        work_folder = self.main.settingsWorkFolder.text().strip() or str(Path.home())
+        default_course = self.main.settingsDefaultCourse.currentText()
+        theme = self.main.settingsTheme.currentText()
+
+        self.settings.setValue(SETTINGS_HUB_URL, hub_url)
+        self.settings.setValue(SETTINGS_WORK_FOLDER, work_folder)
+        self.settings.setValue(SETTINGS_DEFAULT_COURSE, default_course)
+        self.settings.setValue(SETTINGS_THEME, theme)
+        self.settings.sync()
+
+        self.work_folder = work_folder
+        if hub_url:
+            self.jupyter_url = hub_url
+        elif not os.environ.get(ENV_JUPYTER_URL):
+            self.jupyter_url = DEFAULT_LOCAL_JUPYTER_URL
+
+        # Reflect default course on the home page
+        index = self.main.courseModeSelect.findText(default_course)
+        if index >= 0:
+            self.main.courseModeSelect.setCurrentIndex(index)
+
+        # Apply theme immediately
+        self.main._apply_style("dark" if theme.lower() == "dark" else "light")
+        # Re-render the currently shown doc so its inner HTML picks up new colors
+        current = self.main.docsList.currentItem()
+        if current is not None:
+            self.on_docs_item_changed(current, None)
+
+        QMessageBox.information(
+            self.main,
+            "Settings saved",
+            "Your preferences have been saved on this computer.",
+        )
+
+    def reset_settings_to_defaults(self):
+        reply = QMessageBox.question(
+            self.main,
+            "Reset settings?",
+            "This clears your JupyterHub URL, work folder, and default course preferences.",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No,
+        )
+        if reply != QMessageBox.StandardButton.Yes:
+            return
+        for key in (SETTINGS_HUB_URL, SETTINGS_WORK_FOLDER, SETTINGS_DEFAULT_COURSE, SETTINGS_THEME):
+            self.settings.remove(key)
+        self.settings.sync()
+        self.main.settingsHubUrl.clear()
+        self.main.settingsWorkFolder.setText(str(Path.home()))
+        self.main.settingsDefaultCourse.setCurrentIndex(0)
+        self.main.settingsTheme.setCurrentIndex(0)
+        self.work_folder = str(Path.home())
+        if not os.environ.get(ENV_JUPYTER_URL):
+            self.jupyter_url = DEFAULT_LOCAL_JUPYTER_URL
+        self.main._apply_style("light")
+        current = self.main.docsList.currentItem()
+        if current is not None:
+            self.on_docs_item_changed(current, None)
+
+    # ------------------------------------------------------------------
+    # First-run welcome
+    # ------------------------------------------------------------------
+    def maybe_show_welcome(self):
+        if self.settings.value(SETTINGS_WELCOME_SEEN, False, type=bool):
+            return
+
+        dialog = QtWidgets.QDialog(self.main)
+        dialog.setWindowTitle("Welcome to Portable Learning Environment")
+        dialog.setMinimumWidth(560)
+        layout = QtWidgets.QVBoxLayout(dialog)
+        layout.setContentsMargins(28, 24, 28, 20)
+        layout.setSpacing(14)
+
+        header_row = QtWidgets.QHBoxLayout()
+        header_row.setSpacing(16)
+        icon = QtWidgets.QLabel()
+        icon.setPixmap(
+            QtGui.QPixmap(asset_path("ico.png")).scaled(
+                64, 64,
+                QtCore.Qt.AspectRatioMode.KeepAspectRatio,
+                QtCore.Qt.TransformationMode.SmoothTransformation,
+            )
+        )
+        header_row.addWidget(icon, 0, QtCore.Qt.AlignmentFlag.AlignTop)
+        title_block = QtWidgets.QVBoxLayout()
+        title = QtWidgets.QLabel("Welcome to PLE")
+        title.setStyleSheet("font-size: 20px; font-weight: 700; color: #0f1729;")
+        intro = QtWidgets.QLabel(
+            "A desktop workspace for guided lab sessions with Jupyter and GitHub Classroom."
+        )
+        intro.setWordWrap(True)
+        intro.setStyleSheet("color: #4b5b73;")
+        title_block.addWidget(title)
+        title_block.addWidget(intro)
+        header_row.addLayout(title_block, 1)
+        layout.addLayout(header_row)
+
+        steps = QtWidgets.QLabel(
+            "<b>Getting started — pick one:</b><br>"
+            "&nbsp;&nbsp;1. Click <b>Pre-flight check</b> to confirm Python, Git, and Jupyter are installed.<br>"
+            "&nbsp;&nbsp;2. Open <b>Documentation → Installation guide</b> to verify prerequisites.<br>"
+            "&nbsp;&nbsp;3. Teachers: open <b>Documentation → GitHub Classroom Setup</b> first.<br>"
+            "&nbsp;&nbsp;4. Use <b>Start lesson</b> when you're ready to begin a class."
+        )
+        steps.setWordWrap(True)
+        steps.setTextFormat(QtCore.Qt.TextFormat.RichText)
+        layout.addWidget(steps)
+
+        button_row = QtWidgets.QHBoxLayout()
+        open_docs = QtWidgets.QPushButton("Open documentation")
+        open_docs.setObjectName("primaryButton")
+        open_preflight = QtWidgets.QPushButton("Run pre-flight check")
+        open_preflight.setObjectName("secondaryButton")
+        close_btn = QtWidgets.QPushButton("Get started")
+        close_btn.setObjectName("secondaryButton")
+        button_row.addWidget(open_docs)
+        button_row.addWidget(open_preflight)
+        button_row.addStretch()
+        button_row.addWidget(close_btn)
+        layout.addLayout(button_row)
+
+        open_docs.clicked.connect(lambda: (self.show_doc("INSTALL_WINDOWS.md"), dialog.accept()))
+        open_preflight.clicked.connect(lambda: (dialog.accept(), self.run_preflight_check()))
+        close_btn.clicked.connect(dialog.accept)
+
+        dialog.exec()
+        self.settings.setValue(SETTINGS_WELCOME_SEEN, True)
+        self.settings.sync()

@@ -1,0 +1,8 @@
+# Digital Image Processing extras.
+# Install with:
+#   .\.venv\Scripts\python -m pip install -r requirements-dip.txt
+
+opencv-python
+scikit-image
+Pillow
+scipy
