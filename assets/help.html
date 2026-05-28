@@ -2,13 +2,301 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>OIL Teaching Environment</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Portable Learning Environment Help</title>
+    <style>
+        :root {
+            color-scheme: light;
+            --bg: #f5f7fb;
+            --panel: #ffffff;
+            --ink: #172033;
+            --muted: #536174;
+            --line: #dfe5ef;
+            --accent: #1f6feb;
+            --soft: #eef3fb;
+            --warn: #8a5a00;
+            --warn-bg: #fff7df;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            background: var(--bg);
+            color: var(--ink);
+            font-family: "Segoe UI", "Noto Sans", Arial, sans-serif;
+            line-height: 1.55;
+        }
+
+        main {
+            max-width: 1040px;
+            margin: 0 auto;
+            padding: 34px 28px 48px;
+        }
+
+        header {
+            margin-bottom: 26px;
+        }
+
+        h1 {
+            margin: 0 0 8px;
+            font-size: 34px;
+            line-height: 1.15;
+            letter-spacing: 0;
+        }
+
+        h2 {
+            margin: 0 0 14px;
+            font-size: 21px;
+            letter-spacing: 0;
+        }
+
+        h3 {
+            margin: 18px 0 8px;
+            font-size: 16px;
+        }
+
+        p {
+            margin: 0 0 12px;
+        }
+
+        a {
+            color: var(--accent);
+        }
+
+        .subtitle {
+            color: var(--muted);
+            max-width: 760px;
+            font-size: 16px;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 18px;
+        }
+
+        .card {
+            background: var(--panel);
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            padding: 20px;
+        }
+
+        .full {
+            grid-column: 1 / -1;
+        }
+
+        .note {
+            background: var(--soft);
+            border-left: 4px solid var(--accent);
+            padding: 12px 14px;
+            border-radius: 6px;
+            color: var(--ink);
+        }
+
+        .warning {
+            background: var(--warn-bg);
+            border-left: 4px solid var(--warn);
+        }
+
+        ol,
+        ul {
+            margin: 0 0 4px;
+            padding-left: 22px;
+        }
+
+        li {
+            margin: 6px 0;
+        }
+
+        code {
+            background: #eef1f6;
+            border-radius: 4px;
+            padding: 1px 5px;
+            font-family: Consolas, "Courier New", monospace;
+            font-size: 0.95em;
+        }
+
+        .answer {
+            color: var(--muted);
+        }
+
+        @media (max-width: 760px) {
+            main {
+                padding: 24px 16px 36px;
+            }
+
+            .grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
 </head>
 <body>
+<main>
+    <header>
+        <h1>Portable Learning Environment Help</h1>
+        <p class="subtitle">
+            Use this page when you need to start notebooks, clone assignments,
+            submit work, or fix common classroom setup problems.
+        </p>
+    </header>
 
-    <h1>
-        Portable teaching environment
-    </h1>
+    <section class="grid">
+        <article class="card">
+            <h2>Start a Lesson</h2>
+            <ol>
+                <li>Click <strong>Pre-flight check</strong> before class to confirm Python, Git, Jupyter, packages, and Git identity.</li>
+                <li>Click <strong>Start lesson</strong> on the home screen or Assignment menu.</li>
+                <li>Choose the course type: General lecture, Programming language, Digital image processing, AI / machine learning, or General lab.</li>
+                <li>Choose the delivery mode: local Jupyter Notebook for student practice, or teacher-controlled JupyterHub.</li>
+                <li>Paste the GitHub Classroom repository URL.</li>
+                <li>Choose the work folder for student files.</li>
+                <li>Review or edit the checklist, then click <strong>Start</strong>.</li>
+                <li>The app opens the selected notebook environment, clones the assignment when provided, opens the work area, and shows the checklist.</li>
+            </ol>
+        </article>
 
+        <article class="card">
+            <h2>Choose the Right Delivery</h2>
+            <h3>Student practice - local Jupyter Notebook</h3>
+            <p class="answer">
+                Use this when students work independently on their own computer.
+                The app starts a local notebook server only after the lesson begins.
+            </p>
+            <h3>Teacher controlled - JupyterHub</h3>
+            <p class="answer">
+                Use this when the instructor or school manages the notebook server.
+                Enter the JupyterHub URL, then students work through the controlled hub environment.
+            </p>
+        </article>
+
+        <article class="card">
+            <h2>Start a Notebook Session</h2>
+            <ol>
+                <li>Click <strong>Open JupyterHub</strong> on the home screen or toolbar.</li>
+                <li>Wait a few seconds while the notebook server starts.</li>
+                <li>The notebook page should open inside this app, not in an external browser.</li>
+                <li>Open an existing notebook or create a new notebook from the Jupyter file list.</li>
+            </ol>
+            <p class="note">
+                If your class uses a hosted JupyterHub, set <code>PLE_JUPYTER_URL</code>
+                to the hub URL before starting the app.
+            </p>
+        </article>
+
+        <article class="card">
+            <h2>Use GitHub Classroom</h2>
+            <ol>
+                <li>Accept the assignment link from your instructor.</li>
+                <li>In this app, choose <strong>Assignment &gt; Start lesson</strong> or <strong>Clone assignment</strong>.</li>
+                <li>Select a working folder, paste the GitHub repository URL, then click <strong>Clone</strong>.</li>
+                <li>Open the cloned folder in JupyterHub and work on the notebook files.</li>
+                <li>When finished, choose <strong>Assignment &gt; Upload assignment</strong> and paste a GitHub token.</li>
+            </ol>
+        </article>
+
+        <article class="card">
+            <h2>Common Problems</h2>
+            <h3>JupyterHub does not open</h3>
+            <p class="answer">
+                Wait 10-20 seconds and click Open JupyterHub again. If it still fails,
+                check that Jupyter is installed with <code>pip install -r requirements.txt</code>.
+            </p>
+
+            <h3>A page opens in Chrome or Edge</h3>
+            <p class="answer">
+                The app starts local Jupyter with <code>--no-browser</code>. If an
+                external browser still opens, close it and use the JupyterHub tab inside this app.
+            </p>
+
+            <h3>Git clone fails</h3>
+            <p class="answer">
+                Check that Git is installed, the repository URL is correct, and you have permission
+                to access the assignment repository.
+            </p>
+
+            <h3>Upload to GitHub fails</h3>
+            <p class="answer">
+                GitHub no longer accepts normal account passwords for many operations.
+                Use a personal access token when authentication is required.
+            </p>
+        </article>
+
+        <article class="card">
+            <h2>Assignment Status Badges</h2>
+            <ul>
+                <li><strong>Cloned</strong>: the GitHub Classroom repository exists on this computer.</li>
+                <li><strong>Opened</strong>: the assignment folder was opened in JupyterHub.</li>
+                <li><strong>Submitted</strong>: the student marked the work ready for upload.</li>
+                <li><strong>Pushed</strong>: the latest commit was pushed to GitHub.</li>
+            </ul>
+        </article>
+
+        <article class="card">
+            <h2>Submission Quality Check</h2>
+            <p class="answer">
+                Before upload, the app checks whether the selected folder is a Git repository,
+                Git identity is configured, notebooks are readable, empty code cells exist,
+                outputs or artifacts are present, and Git has changes to submit.
+            </p>
+            <p class="answer">
+                Failed checks should be fixed before upload. Warnings can be accepted when
+                the teacher confirms they are expected for the assignment.
+            </p>
+        </article>
+
+        <article class="card">
+            <h2>For Students</h2>
+            <ul>
+                <li>Run every notebook cell from top to bottom before submitting.</li>
+                <li>Save your notebook before upload.</li>
+                <li>Do not rename required files unless your instructor says to.</li>
+                <li>If code breaks, copy the full error message before asking for help.</li>
+                <li>Submit early once, then improve and submit again if your class allows it.</li>
+            </ul>
+        </article>
+
+        <article class="card">
+            <h2>For Teachers</h2>
+            <ul>
+                <li>Put the learning goal and expected output at the top of each notebook.</li>
+                <li>Use small checkpoints so students know if they are still on track.</li>
+                <li>Provide starter code for setup-heavy tasks and leave the concept work to students.</li>
+                <li>Ask students to commit meaningful milestones, not only final answers.</li>
+                <li>Include a short reflection question to reveal misconceptions.</li>
+            </ul>
+        </article>
+
+        <article class="card">
+            <h2>Helpful Commands</h2>
+            <ul>
+                <li>Install requirements: <code>pip install -r requirements.txt</code></li>
+                <li>Start the app: <code>python main.py</code></li>
+                <li>Check Git: <code>git --version</code></li>
+                <li>Check Python: <code>python --version</code></li>
+            </ul>
+            <p class="note warning">
+                On Windows, if installation fails with a long-path error, use a shorter
+                project path such as <code>C:\ple</code> or enable Windows Long Path support.
+            </p>
+        </article>
+
+        <article class="card full">
+            <h2>Still Need Help?</h2>
+            <p>
+                Contact your instructor with the assignment name, what you clicked,
+                what you expected to happen, and the exact error message. Screenshots
+                are helpful when the problem is visual.
+            </p>
+            <p>
+                App contact: <a href="mailto:haryanto462@gmail.com">haryanto462@gmail.com</a>
+            </p>
+        </article>
+    </section>
+</main>
 </body>
 </html>

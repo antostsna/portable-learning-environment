@@ -1,0 +1,26 @@
+# Core dependencies — required for the app to launch and run notebooks.
+# Course modes covered: General Lecture, Programming Language, General Lab.
+# Install size: ~300 MB. Install time: ~2 min on a typical connection.
+
+# Desktop UI
+PyQt6>=6.6,<7
+PyQt6-WebEngine>=6.6,<7
+QtPy>=2.4,<3
+qtconsole>=5.5,<6
+
+# Notebook runtime
+notebook>=7,<8
+ipython
+bash_kernel
+jupyter-c-kernel
+
+# Optional centralized server support (small dep; needed only if teacher uses JupyterHub mode)
+jupyterhub
+
+# Common scientific minimum (used by most lectures and the programming course)
+numpy
+pandas
+matplotlib
+
+# Utilities
+python-dateutil>=2.8.2

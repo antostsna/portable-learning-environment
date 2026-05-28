@@ -1,0 +1,16 @@
+# Deterministic line endings across platforms.
+# Text files use LF in the repo; PowerShell scripts and Windows batch use CRLF.
+
+* text=auto eol=lf
+
+*.ps1 text eol=crlf
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# Binary assets — never normalize
+*.png binary
+*.ico binary
+*.jpg binary
+*.jpeg binary
+*.pptx binary
+*.pdf binary

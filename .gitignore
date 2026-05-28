@@ -1,0 +1,28 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# PyInstaller / build output
+build/
+dist/
+release/
+*.spec
+
+# IDE / editor / local tooling
+.idea/
+.vscode/
+.claude/
+
+# OS cruft
+.DS_Store
+Thumbs.db
+
+# NOTE: docs/ is intentionally NOT ignored — the in-app Documentation page
+# loads these markdown files at runtime and they are bundled into releases.
